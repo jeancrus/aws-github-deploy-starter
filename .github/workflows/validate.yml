@@ -12,6 +12,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
       - name: Validate shell scripts
         run: bash -n scripts/*.sh
       - name: Validate generated MCP configuration
@@ -25,4 +26,3 @@ jobs:
           test -s generated/decision-record.md
       - name: Check repository whitespace
         run: git diff --check
-
