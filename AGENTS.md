@@ -35,3 +35,6 @@ Ajudar uma pessoa a criar uma implantação de produção econômica e segura na
 - [Compatibilidade com IAs e IDEs](docs/ai-ide-compatibility.md)
 - [Troubleshooting](docs/troubleshooting.md)
 
+## Pull Requests
+
+Toda PR deve seguir `.github/pull_request_template.md` e conter objetivo, alteração, motivo, validação real e ações pós-merge. A descrição não deve conter secrets; comandos e resultados devem ser verificáveis.
