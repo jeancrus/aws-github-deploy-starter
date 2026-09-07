@@ -8,6 +8,8 @@ Responda: qual é o repositório do backend, se existe um frontend separado, qua
 
 Se você não conhece as regiões, consulte a [lista oficial de regiões da AWS](https://docs.aws.amazon.com/global-infrastructure/latest/regions/aws-regions.html). Escolha uma região próxima dos usuários e confirme a disponibilidade dos serviços necessários. Exemplos: `us-east-1` (Norte da Virgínia), `sa-east-1` (São Paulo) e `eu-west-1` (Irlanda).
 
+Se você não conhece as regiões, consulte a [lista oficial de regiões da AWS](https://docs.aws.amazon.com/global-infrastructure/latest/regions/aws-regions.html). Escolha uma região próxima dos usuários e confirme a disponibilidade dos serviços necessários. Exemplos: `us-east-1` (Norte da Virgínia), `sa-east-1` (São Paulo) e `eu-west-1` (Irlanda).
+
 Use o wizard local:
 
 ```bash
