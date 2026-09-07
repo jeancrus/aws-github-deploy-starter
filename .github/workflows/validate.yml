@@ -1,0 +1,28 @@
+name: Validate starter
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate shell scripts
+        run: bash -n scripts/*.sh
+      - name: Validate generated MCP configuration
+        run: |
+          AWS_REGION=us-east-1 AWS_PROFILE=ci bash scripts/install-mcps.sh
+          python -m json.tool generated/mcp-config.json >/dev/null
+      - name: Run decision wizard non-interactively
+        run: |
+          printf 'ci-app\nus-east-1\n50\nexample/ci\nmain\nn\nhttps://example.test/health\n' \
+            | bash scripts/decision-wizard.sh
+          test -s generated/decision-record.md
+      - name: Check repository whitespace
+        run: git diff --check
+

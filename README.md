@@ -1,5 +1,7 @@
 # AWS + GitHub Actions Deploy Starter
 
+[![Validate starter](https://github.com/jeancrus/aws-github-deploy-starter/actions/workflows/validate.yml/badge.svg)](https://github.com/jeancrus/aws-github-deploy-starter/actions/workflows/validate.yml)
+
 Um guia e kit interativo para sair de zero até um deploy de produção na AWS usando EC2, Docker e GitHub Actions.
 
 O projeto foi desenhado para pessoas e diferentes IAs/IDEs. Ele pergunta decisões importantes, registra premissas e deixa a execução destrutiva sob confirmação humana.
@@ -30,4 +32,3 @@ O starter orienta e gera artefatos; ele não provisiona AWS automaticamente. A i
 ## Segurança
 
 Nunca coloque `.pem`, access keys, senhas ou valores de produção neste repositório. Leia [docs/security.md](docs/security.md).
-
