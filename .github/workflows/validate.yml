@@ -21,7 +21,7 @@ jobs:
           python -m json.tool generated/mcp-config.json >/dev/null
       - name: Run decision wizard non-interactively
         run: |
-          printf 'ci-app\nus-east-1\n50\nexample/ci\nmain\nn\nhttps://example.test/health\n' \
+          printf 'ci-app\nus-east-1\n50\nexample/backend\nexample/frontend\n\nmain\nn\nhttps://example.test/health\n' \
             | bash scripts/decision-wizard.sh
           test -s generated/decision-record.md
       - name: Check repository whitespace

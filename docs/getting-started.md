@@ -4,7 +4,9 @@ Este roteiro é genérico. Substitua valores entre `<...>`; não copie nomes, co
 
 ## 1. Defina o contexto
 
-Responda: qual é o repositório e branch de produção, região, orçamento mensal, disponibilidade, portas públicas, dependências e endpoint de health check?
+Responda: qual é o repositório do backend, se existe um frontend separado, qual repositório contém a infraestrutura/deploy, branch de produção, região, orçamento mensal, disponibilidade, portas públicas, dependências e endpoint de health check.
+
+Se você não conhece as regiões, consulte a [lista oficial de regiões da AWS](https://docs.aws.amazon.com/global-infrastructure/latest/regions/aws-regions.html). Escolha uma região próxima dos usuários e confirme a disponibilidade dos serviços necessários. Exemplos: `us-east-1` (Norte da Virgínia), `sa-east-1` (São Paulo) e `eu-west-1` (Irlanda).
 
 Use o wizard local:
 
@@ -20,6 +22,10 @@ aws sts get-caller-identity
 ```
 
 O perfil deve apontar para a conta e região corretas. Nunca cole credenciais no terminal compartilhado ou em issues.
+
+### Repositórios usados pelo setup
+
+O repositório do backend é obrigatório: ele é a fonte do código que será clonado e executado na EC2. Informe também o frontend quando ele for separado e o repositório de infraestrutura/deploy quando os workflows ou Terraform estiverem em outro lugar. Se a infraestrutura estiver junto do backend, deixe esse último campo vazio; o wizard usará o backend como padrão.
 
 ## 3. Escolha a arquitetura pelo custo-benefício
 
@@ -62,4 +68,3 @@ O deploy deve fazer checkout fast-forward, carregar configuração, construir im
 ## 12. Valide e opere
 
 Teste URL de health, logs, banco/Redis, migrations, domínio e TLS. Registre o fingerprint SSH do host atual e atualize-o somente após confirmar rotação legítima. Configure budget e revise recursos ociosos periodicamente.
-
