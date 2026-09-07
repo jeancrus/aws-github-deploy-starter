@@ -1,0 +1,20 @@
+name: Deploy production
+
+on:
+  push:
+    branches: [<PRODUCTION_BRANCH>]
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment: <GITHUB_ENVIRONMENT>
+    steps:
+      - uses: actions/checkout@v4
+      - name: Deploy using the approved mechanism
+        run: |
+          echo 'Replace this step with the reviewed SSH or SSM deploy procedure.'
+          echo 'Do not put secrets in command arguments or logs.'
+

@@ -1,0 +1,12 @@
+.env
+.env.*
+!.env.example
+generated/*
+!.gitkeep
+*.pem
+*.key
+*.tfstate
+*.tfstate.*
+.terraform/
+.aws/
+

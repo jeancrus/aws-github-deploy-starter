@@ -1,0 +1,7 @@
+---
+description: AWS deployment safety and guided setup
+alwaysApply: true
+---
+
+Leia `AGENTS.md` e `docs/getting-started.md`. Pergunte antes de criar recursos, não manipule segredos e prefira OIDC e Session Manager.
+
