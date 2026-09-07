@@ -6,6 +6,8 @@ Este roteiro é genérico. Substitua valores entre `<...>`; não copie nomes, co
 
 Responda: qual é o repositório e branch de produção, região, orçamento mensal, disponibilidade, portas públicas, dependências e endpoint de health check?
 
+Se você não conhece as regiões, consulte a [lista oficial de regiões da AWS](https://docs.aws.amazon.com/global-infrastructure/latest/regions/aws-regions.html). Escolha uma região próxima dos usuários e confirme a disponibilidade dos serviços necessários. Exemplos: `us-east-1` (Norte da Virgínia), `sa-east-1` (São Paulo) e `eu-west-1` (Irlanda).
+
 Use o wizard local:
 
 ```bash
@@ -62,4 +64,3 @@ O deploy deve fazer checkout fast-forward, carregar configuração, construir im
 ## 12. Valide e opere
 
 Teste URL de health, logs, banco/Redis, migrations, domínio e TLS. Registre o fingerprint SSH do host atual e atualize-o somente após confirmar rotação legítima. Configure budget e revise recursos ociosos periodicamente.
-
