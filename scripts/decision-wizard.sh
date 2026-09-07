@@ -32,7 +32,14 @@ while [[ -z "$region" ]]; do
   read -r -p 'Região AWS escolhida: ' region
 done
 read -r -p 'Orçamento mensal máximo (moeda): ' budget
-read -r -p 'Repositório GitHub (owner/name): ' repository
+read -r -p 'Repositório do backend (owner/name): ' backend_repository
+while [[ -z "$backend_repository" ]]; do
+  echo 'O repositório do backend é obrigatório porque ele será implantado na EC2.'
+  read -r -p 'Repositório do backend (owner/name): ' backend_repository
+done
+read -r -p 'Repositório do frontend (owner/name, opcional): ' frontend_repository
+read -r -p 'Repositório de infraestrutura/deploy (opcional; Enter = backend): ' deployment_repository
+deployment_repository="${deployment_repository:-$backend_repository}"
 read -r -p 'Branch de produção: ' branch
 read -r -p 'Precisa de alta disponibilidade desde o início? [s/N] ' ha
 read -r -p 'Health check esperado (URL ou comando): ' health
@@ -43,7 +50,9 @@ cat > generated/decision-record.md <<EOF
 - Projeto: $project
 - Região: $region
 - Orçamento mensal: $budget
-- Repositório: $repository
+- Repositório do backend: $backend_repository
+- Repositório do frontend: ${frontend_repository:-não informado}
+- Repositório de infraestrutura/deploy: $deployment_repository
 - Branch de produção: $branch
 - Alta disponibilidade inicial: ${ha:-N}
 - Health check: $health
