@@ -1,4 +1,3 @@
-# Criar EC2
+# Criar EC2 Lean
 
-Antes de qualquer mudança, confirme conta, região, AMI, arquitetura, tipo, sub-rede, volume, Security Group, instance profile, tags e orçamento. Mostre o plano e aguarde confirmação. Depois valide Session Manager, Docker, SSM Agent e saída de rede. Nunca exponha credenciais.
-
+Siga `.github/skills/aws-ec2-bootstrap/SKILL.md`. Estime custo antes. Prefira Graviton micro se a stack permitir. SG mínimo; Session Manager; swap + Docker via `templates/scripts/bootstrap-ec2.sh`. Peça confirmação antes de qualquer create cobrado.

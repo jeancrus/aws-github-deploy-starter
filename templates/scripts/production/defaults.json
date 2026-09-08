@@ -1,0 +1,7 @@
+{
+  "NODE_ENV": "production",
+  "PORT": "3000",
+  "CORS_ORIGIN": "https://<PAGES_HOST>",
+  "POSTGRES_DB": "<DB_NAME>",
+  "POSTGRES_USER": "<DB_USER>"
+}

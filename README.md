@@ -2,9 +2,9 @@
 
 [![Validate starter](https://github.com/jeancrus/aws-github-deploy-starter/actions/workflows/validate.yml/badge.svg)](https://github.com/jeancrus/aws-github-deploy-starter/actions/workflows/validate.yml)
 
-Um guia e kit interativo para sair de zero até um deploy de produção na AWS usando EC2, Docker e GitHub Actions.
+Kit e skill para sair de zero até um **Lean MVP online na AWS**: EC2 barata (Graviton), Docker Compose, SSM Parameter Store, GitHub Actions com OIDC e (opcional) Cloudflare Pages com proxy same-origin.
 
-O projeto foi desenhado para pessoas e diferentes IAs/IDEs. Ele pergunta decisões importantes, registra premissas e deixa a execução destrutiva sob confirmação humana.
+Desenhado para pessoas e IAs/IDEs. Pergunta decisões, registra premissas e deixa create/apply/deploy cobrado sob confirmação humana.
 
 ## Comece aqui
 
@@ -17,17 +17,24 @@ bash scripts/decision-wizard.sh
 
 Depois siga [docs/getting-started.md](docs/getting-started.md).
 
+No Cursor, a skill principal é `.cursor/skills/lean-mvp-aws-deploy/` — ela conduz **uma etapa por vez** com links de console e comandos para copiar/colar. Peça “seguir o Lean MVP AWS deploy” ou abra a skill.
+
 ## Incluído
 
-- Roteiro completo de AWS + GitHub Actions desde zero.
-- Comparação de custo para EC2, EBS, IP e transferência.
-- Configuração local dos MCPs AWS Pricing e Billing/Cost Management.
-- Steerings portáveis para AGENTS.md, Claude, Copilot e Cursor.
-- Prompts para descoberta, custo, EC2, OIDC, deploy e diagnóstico.
-- Templates de workflows para `plan`, `apply` e deploy.
-- Guardrails contra segredos, `apply` acidental e recursos caros.
+- Roteiro completo do padrão Arenex/SSM (máquina ≠ config ≠ deploy).
+- Skills para EC2, OIDC, deploy com `--force-recreate`, Pages proxy, custo e troubleshooting.
+- Templates prontos para copiar: CloudFormation bootstrap, `deploy.sh`, `sync_config.py`, workflows, Compose e Functions.
+- Comparação de custo EC2/EBS/IP; setup dos MCPs de Pricing e Billing.
+- Steerings para AGENTS.md, Claude, Copilot e Cursor.
+- Guardrails contra secrets, apply acidental e recursos caros.
 
-O starter orienta e gera artefatos; ele não provisiona AWS automaticamente. A infraestrutura precisa ser revisada e aprovada pelo responsável da conta.
+O starter orienta e gera artefatos; **não** provisiona AWS sozinho.
+
+## Arquitetura em uma frase
+
+GitHub OIDC escreve SSM → EC2 lê SSM e sobe Compose → Pages (opcional) faz proxy `/api` para o hostname:porta da EC2.
+
+Detalhes: [docs/architecture.md](docs/architecture.md).
 
 ## Segurança
 

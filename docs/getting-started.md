@@ -1,72 +1,124 @@
-# Deploy de produção do zero: AWS + GitHub Actions
+# Deploy Lean MVP do zero: AWS + GitHub Actions
 
-Este roteiro é genérico. Substitua valores entre `<...>`; não copie nomes, contas, IPs ou secrets de outro projeto.
+Roteiro genérico alinhado ao padrão que funciona em produção: **EC2 barata + Docker Compose + SSM Parameter Store + GitHub OIDC + deploy SSH**, com **Cloudflare Pages** opcional para SPA.
+
+Substitua `<...>`. Não copie host, conta, IP ou secrets de outro projeto.
+
+## Visão rápida
+
+```text
+1. Decisões + custo
+2. EC2 + Docker + swap
+3. CloudFormation bootstrap (OIDC / S3 state / EC2 profile)
+4. Environment GitHub production
+5. Terraform → SSM (plan → apply)
+6. Deploy (git pull + deploy.sh com --force-recreate)
+7. (Opcional) Pages + proxy /api
+```
+
+Arquitetura: [architecture.md](architecture.md).  
+Agente Cursor: skill `.cursor/skills/lean-mvp-aws-deploy/`.  
+Templates: `templates/`.
 
 ## 1. Defina o contexto
 
-Responda: qual é o repositório do backend, se existe um frontend separado, qual repositório contém a infraestrutura/deploy, branch de produção, região, orçamento mensal, disponibilidade, portas públicas, dependências e endpoint de health check.
+Responda: repositório do backend (obrigatório), frontend separado (opcional), repo de infra (opcional), branch de produção, região, orçamento, disponibilidade, portas públicas, dependências e health check.
 
-Se você não conhece as regiões, consulte a [lista oficial de regiões da AWS](https://docs.aws.amazon.com/global-infrastructure/latest/regions/aws-regions.html). Escolha uma região próxima dos usuários e confirme a disponibilidade dos serviços necessários. Exemplos: `us-east-1` (Norte da Virgínia), `sa-east-1` (São Paulo) e `eu-west-1` (Irlanda).
-
-Se você não conhece as regiões, consulte a [lista oficial de regiões da AWS](https://docs.aws.amazon.com/global-infrastructure/latest/regions/aws-regions.html). Escolha uma região próxima dos usuários e confirme a disponibilidade dos serviços necessários. Exemplos: `us-east-1` (Norte da Virgínia), `sa-east-1` (São Paulo) e `eu-west-1` (Irlanda).
-
-Use o wizard local:
+Regiões: [lista oficial AWS](https://docs.aws.amazon.com/global-infrastructure/regions_az/index.html). Exemplos: `us-east-1`, `sa-east-1`, `eu-west-1`.
 
 ```bash
 bash scripts/decision-wizard.sh
 ```
 
-## 2. Verifique pré-requisitos
+## 2. Pré-requisitos
 
 ```bash
 bash scripts/check-prerequisites.sh
 aws sts get-caller-identity
 ```
 
-O perfil deve apontar para a conta e região corretas. Nunca cole credenciais no terminal compartilhado ou em issues.
+Nunca cole access keys no chat, issues ou logs.
 
-### Repositórios usados pelo setup
+## 3. Custo-benefício
 
-O repositório do backend é obrigatório: ele é a fonte do código que será clonado e executado na EC2. Informe também o frontend quando ele for separado e o repositório de infraestrutura/deploy quando os workflows ou Terraform estiverem em outro lugar. Se a infraestrutura estiver junto do backend, deixe esse último campo vazio; o wizard usará o backend como padrão.
+Leia [cost-analysis.md](cost-analysis.md). Preferência Lean: **Graviton `t4g.micro`**, EBS pequeno, sem ALB/RDS/NAT. Ordem de grandeza típica: ~US$ 8–12/mês + Pages free. Registre a escolha em `generated/decision-record.md` e peça aprovação humana antes de criar recursos.
 
-## 3. Escolha a arquitetura pelo custo-benefício
+## 4. Máquina (EC2)
 
-Leia [cost-analysis.md](cost-analysis.md) e instale os MCPs com `bash scripts/install-mcps.sh`. Compare ARM64 e x86 considerando EC2, EBS, IPv4, transferência, snapshots, logs e dependências. Registre a decisão em `generated/decision-record.md` e revise a estimativa antes de provisionar.
+Crie VPC/sub-rede/SG mínimos ou use Terraform lean em `templates/terraform/`.
 
-## 4. Crie a rede e a EC2
+- SSH só de CIDR admin `/32`, ou use Session Manager sem abrir 22
+- Publique a porta da API só se o front/proxy precisar
+- **Nunca** exponha 5432/Redis
+- EIP ajuda a manter DNS `ec2-….amazonaws.com` estável para Pages
 
-Crie ou selecione VPC, sub-rede e route table. Configure Security Group mínimo: SSH somente de origem administrativa temporária, ou não exponha e use Session Manager; HTTP/HTTPS apenas se necessário; banco, Redis e portas internas nunca públicos.
+Na primeira conexão: `templates/scripts/bootstrap-ec2.sh` (swap + Docker). Confirme arch (`aarch64` vs `x86_64`).
 
-Crie a instância com tipo, AMI, sub-rede, volume EBS criptografado e tags aprovados na etapa de custo. Use instance profile com apenas as permissões necessárias.
+## 5. Bootstrap de config (CloudFormation, uma vez)
 
-## 5. Prepare o runtime
+1. Abra `templates/cloudformation/bootstrap.yml`
+2. Crie a stack na região escolhida
+3. Parâmetros: `ProjectSlug`, `GitHubRepository`, `GitHubRepositoryImmutableSubject`, `ExistingOidcProviderArn` (vazio **ou** ARN se a conta já tiver OIDC)
+4. Copie Outputs: `StateBucketName`, `ConfigRunnerRoleArn`, `Ec2InstanceProfileName`
 
-Instale Docker, Compose plugin e agente SSM conforme distribuição e arquitetura da AMI. Valide `docker --version`, `docker compose version` e o serviço do SSM. Use Session Manager para a primeira conexão sempre que possível.
+Anexe o instance profile à EC2 → Security → Modify IAM role.
 
-## 6. Prepare o repositório
+Instale SSM Agent + AWS CLI na arch correta. Crie:
 
-Crie deploy key somente de leitura para clonar o repositório, ou use outro mecanismo aprovado. Clone em diretório explícito, configure o usuário do serviço e teste `docker compose config` sem imprimir secrets.
+```bash
+sudo install -d -m 700 -o ubuntu -g ubuntu /opt/<PROJECT>-runtime
+sudo install -d -m 0755 -o ubuntu -g ubuntu /opt/<PROJECT>-api
+```
 
-## 7. Configure parâmetros e secrets
+Clone com deploy key somente leitura na branch de produção (working tree limpa).
 
-Prefira SSM Parameter Store `SecureString` ou Secrets Manager. Não grave secrets no git, artefatos, logs ou imagem Docker.
+## 6. Environment GitHub `production`
 
-## 8. Configure IAM e OIDC
+**Variables:** `AWS_REGION`, `TF_STATE_BUCKET`, `AWS_CONFIG_ROLE_ARN`, `PRODUCTION_SSM_ENABLED=false`, `PRODUCTION_CONFIG_JSON={}`
 
-Crie OIDC provider para `token.actions.githubusercontent.com` e role com trust policy restrita à audiência `sts.amazonaws.com`, repositório exato e branch/environment exato. Permita apenas ações AWS usadas por `plan` e `apply`. Consulte `templates/github-actions/`.
+**Secrets:** `PRODUCTION_SECRETS_JSON`, `EC2_HOST` (hostname DNS, não IP cru), `EC2_SSH_KEY`, `EC2_HOST_FINGERPRINT`, opcional `EC2_USER`
 
-## 9. Configure o GitHub Environment
+Teste OIDC: copie `templates/github-actions/identity.yml` e rode o workflow.
 
-Crie um environment protegido. Use variables para região, role ARN, state bucket e flags não sensíveis; secrets para chave SSH, fingerprint, host, usuário e integrações. O conteúdo da chave privada deve manter as linhas `BEGIN` e `END` e nunca aparecer em logs.
+## 7. Código de produção no backend
 
-## 10. Rode plan e apply
+Copie e adapte:
 
-Abra branch e PR, rode validação e `terraform plan`, revise recursos, região, conta e custo, e somente então execute `apply` aprovado. Confirme outputs sem expor valores sensíveis.
+| Origem no starter | Destino no backend |
+| --- | --- |
+| `templates/scripts/production/*` | `scripts/production/` |
+| `templates/docker-compose.prod.yml` | `docker-compose.prod.yml` |
+| `templates/github-actions/deploy.yml` | `.github/workflows/deploy.yml` |
+| `templates/github-actions/production-config.yml` | `.github/workflows/production-config.yml` |
+| `templates/terraform/production-config.README.md` | `infra/production-config/` (implementar `main.tf`) |
+| `templates/cloudformation/bootstrap.yml` | `infra/production-config/bootstrap.yml` |
 
-## 11. Faça o primeiro deploy
+Substitua todos os `<PLACEHOLDERS>`.
 
-O deploy deve fazer checkout fast-forward, carregar configuração, construir imagens, subir dependências, aguardar readiness e validar health check. Em falha, mantenha o candidato para diagnóstico e não faça rollback de banco automaticamente sem estratégia aprovada.
+## 8. Primeiro apply de parâmetros + deploy
 
-## 12. Valide e opere
+1. Merge na branch de produção
+2. Actions → **Production parameters** → `plan` → revise → `apply`
+3. Na EC2, liste nomes/tipos SSM **sem** descriptografar em logs
+4. `PRODUCTION_SSM_ENABLED=true`
+5. **Deploy to Production** (push ou `workflow_dispatch`)
+6. Health: `curl` em `http://127.0.0.1:<PORT>/<health>` na EC2
 
-Teste URL de health, logs, banco/Redis, migrations, domínio e TLS. Registre o fingerprint SSH do host atual e atualize-o somente após confirmar rotação legítima. Configure budget e revise recursos ociosos periodicamente.
+O `deploy.sh` **precisa** de `--force-recreate` no serviço da app. Sem isso, código novo no disco não entra no processo em memória.
+
+## 9. Frontend (opcional)
+
+Siga [cloudflare-pages.md](cloudflare-pages.md) e a skill `cloudflare-pages-proxy`.
+
+Pontos críticos: projeto **Pages**; `BACKEND_API_URL` com hostname + porta; redeploy após mudar a var; `CORS_ORIGIN` HTTPS alinhado.
+
+## 10. Operação contínua
+
+- Parâmetros: workflow manual `plan`/`apply`
+- Código: push na branch de produção (com flag ligada)
+- Ops: Session Manager; budgets AWS; revise recursos ociosos
+- Troubleshooting: [troubleshooting.md](troubleshooting.md)
+
+## Segurança
+
+Nunca coloque `.pem`, access keys ou valores de produção neste starter. Leia [security.md](security.md).

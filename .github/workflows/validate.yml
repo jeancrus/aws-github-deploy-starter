@@ -14,15 +14,45 @@ jobs:
       - uses: actions/checkout@v4
       - uses: astral-sh/setup-uv@v6
       - name: Validate shell scripts
-        run: bash -n scripts/*.sh
+        run: |
+          bash -n scripts/*.sh
+          bash -n templates/scripts/bootstrap-ec2.sh
+          bash -n templates/scripts/production/deploy.sh
+      - name: Validate Python templates
+        run: |
+          python3 -m py_compile templates/scripts/production/sync_config.py
+          python3 -m py_compile templates/scripts/production/check_inputs.py
+      - name: Validate CloudFormation template markers
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          text = Path("templates/cloudformation/bootstrap.yml").read_text(encoding="utf-8")
+          for needle in (
+              "AWSTemplateFormatVersion",
+              "ExistingOidcProviderArn",
+              "ConfigRunnerRole",
+              "Ec2InstanceProfileName",
+              "ProjectSlug",
+          ):
+              assert needle in text, needle
+          print("cfn template markers ok")
+          PY
+      - name: Required skill and docs exist
+        run: |
+          test -f .cursor/skills/lean-mvp-aws-deploy/SKILL.md
+          test -f .github/skills/cloudflare-pages-proxy/SKILL.md
+          test -f docs/architecture.md
+          test -f docs/cloudflare-pages.md
+          test -f docs/getting-started.md
       - name: Validate generated MCP configuration
         run: |
           AWS_REGION=us-east-1 AWS_PROFILE=ci bash scripts/install-mcps.sh
           python -m json.tool generated/mcp-config.json >/dev/null
       - name: Run decision wizard non-interactively
         run: |
-          printf 'ci-app\nus-east-1\n50\nexample/backend\nexample/frontend\n\nmain\nn\nhttps://example.test/health\n' \
+          printf 'ci-app\nus-east-1\n50\nexample/backend\nexample/frontend\n\nmain\nn\n3000\nhttps://example.test/health\ns\n' \
             | bash scripts/decision-wizard.sh
           test -s generated/decision-record.md
+          grep -q 'Porta da API: 3000' generated/decision-record.md
       - name: Check repository whitespace
         run: git diff --check

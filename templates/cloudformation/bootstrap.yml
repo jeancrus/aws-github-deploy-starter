@@ -1,0 +1,151 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: >-
+  Lean MVP config bootstrap — S3 Terraform state, GitHub OIDC role for SSM,
+  and EC2 instance profile for Parameter Store read + Session Manager.
+  Does NOT create EC2, VPC, or databases. Replace Parameter defaults before use.
+
+Parameters:
+  ProjectSlug:
+    Type: String
+    Description: Short slug used in SSM path /<slug>/production/*
+    AllowedPattern: '^[a-z0-9][a-z0-9-]{1,30}$'
+  GitHubRepository:
+    Type: String
+    Description: owner/name of the backend repository (legacy OIDC subject)
+  GitHubRepositoryImmutableSubject:
+    Type: String
+    Description: Immutable GitHub OIDC subject owner@id/repository@id
+  ExistingOidcProviderArn:
+    Type: String
+    Default: ''
+    Description: >-
+      Leave empty only if this account has no token.actions.githubusercontent.com
+      provider. If Arenex or another stack already created it, paste that ARN.
+
+Conditions:
+  CreateOidc: !Equals [!Ref ExistingOidcProviderArn, '']
+
+Resources:
+  StateBucket:
+    Type: AWS::S3::Bucket
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Properties:
+      VersioningConfiguration:
+        Status: Enabled
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: AES256
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+
+  StateBucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket: !Ref StateBucket
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Deny
+            Principal: '*'
+            Action: s3:*
+            Resource: [!GetAtt StateBucket.Arn, !Sub '${StateBucket.Arn}/*']
+            Condition:
+              Bool:
+                aws:SecureTransport: 'false'
+
+  GitHubOidc:
+    Type: AWS::IAM::OIDCProvider
+    Condition: CreateOidc
+    Properties:
+      Url: https://token.actions.githubusercontent.com
+      ClientIdList: [sts.amazonaws.com]
+
+  ConfigRunnerRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Federated: !If [CreateOidc, !Ref GitHubOidc, !Ref ExistingOidcProviderArn]
+            Action: sts:AssumeRoleWithWebIdentity
+            Condition:
+              StringEquals:
+                token.actions.githubusercontent.com:aud: sts.amazonaws.com
+                token.actions.githubusercontent.com:sub:
+                  - !Sub 'repo:${GitHubRepository}:environment:production'
+                  - !Sub 'repo:${GitHubRepositoryImmutableSubject}:environment:production'
+      Policies:
+        - PolicyName: LeanMvpConfigStateAndParameters
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action: s3:ListBucket
+                Resource: !GetAtt StateBucket.Arn
+              - Effect: Allow
+                Action: [s3:GetObject, s3:PutObject]
+                Resource: !Sub '${StateBucket.Arn}/production-config/terraform.tfstate'
+              - Effect: Allow
+                Action: [s3:GetObject, s3:PutObject, s3:DeleteObject]
+                Resource: !Sub '${StateBucket.Arn}/production-config/terraform.tfstate.tflock'
+              - Effect: Allow
+                Action: ssm:DescribeParameters
+                Resource: '*'
+              - Effect: Allow
+                Action:
+                  - ssm:GetParameter
+                  - ssm:PutParameter
+                  - ssm:ListTagsForResource
+                  - ssm:AddTagsToResource
+                  - ssm:RemoveTagsFromResource
+                Resource: !Sub 'arn:${AWS::Partition}:ssm:${AWS::Region}:${AWS::AccountId}:parameter/${ProjectSlug}/production/*'
+
+  Ec2ReadPolicy:
+    Type: AWS::IAM::ManagedPolicy
+    Properties:
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Action: ssm:GetParametersByPath
+            Resource:
+              - !Sub 'arn:${AWS::Partition}:ssm:${AWS::Region}:${AWS::AccountId}:parameter/${ProjectSlug}/production'
+              - !Sub 'arn:${AWS::Partition}:ssm:${AWS::Region}:${AWS::AccountId}:parameter/${ProjectSlug}/production/*'
+
+  Ec2ReadRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: ec2.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - !Ref Ec2ReadPolicy
+        - !Sub 'arn:${AWS::Partition}:iam::aws:policy/AmazonSSMManagedInstanceCore'
+
+  Ec2Profile:
+    Type: AWS::IAM::InstanceProfile
+    Properties:
+      Roles: [!Ref Ec2ReadRole]
+
+Outputs:
+  StateBucketName:
+    Value: !Ref StateBucket
+  ConfigRunnerRoleArn:
+    Value: !GetAtt ConfigRunnerRole.Arn
+  Ec2InstanceProfileName:
+    Value: !Ref Ec2Profile
+  Ec2ReadPolicyArn:
+    Value: !Ref Ec2ReadPolicy
+  SsmPrefix:
+    Value: !Sub '/${ProjectSlug}/production'

@@ -1,7 +1,8 @@
 ---
-description: AWS deployment safety and guided setup
+description: AWS Lean MVP deploy safety and guided setup
 alwaysApply: true
 ---
 
-Leia `AGENTS.md` e `docs/getting-started.md`. Pergunte antes de criar recursos, não manipule segredos e prefira OIDC e Session Manager.
+Leia `AGENTS.md` e `docs/getting-started.md`. Para conduzir o fluxo completo, siga `.cursor/skills/lean-mvp-aws-deploy/SKILL.md`.
 
+Pergunte antes de criar recursos. Não manipule segredos. Prefira OIDC e Session Manager. Em Compose com processo long-lived, exija `--force-recreate`. Em Cloudflare Pages, use hostname+porta no projeto Pages (nunca IP).
