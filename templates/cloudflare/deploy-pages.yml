@@ -1,0 +1,41 @@
+name: Deploy Cloudflare Pages
+
+on:
+  push:
+    branches: [<PRODUCTION_BRANCH>]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment: production
+    if: github.ref == 'refs/heads/<PRODUCTION_BRANCH>'
+    steps:
+      - name: Deployment disabled
+        if: vars.CLOUDFLARE_PAGES_DEPLOY_ENABLED != 'true'
+        run: echo 'CLOUDFLARE_PAGES_DEPLOY_ENABLED is not true; skipping.'
+
+      - uses: actions/checkout@v4
+        if: vars.CLOUDFLARE_PAGES_DEPLOY_ENABLED == 'true'
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-node@v4
+        if: vars.CLOUDFLARE_PAGES_DEPLOY_ENABLED == 'true'
+        with:
+          node-version: "22"
+
+      - name: Build and deploy
+        if: vars.CLOUDFLARE_PAGES_DEPLOY_ENABLED == 'true'
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          # Same-origin: leave empty so the SPA calls /api on Pages
+          VITE_API_URL: ""
+        run: |
+          npm ci
+          npm run build
+          npx wrangler pages deploy dist --project-name=${{ vars.CLOUDFLARE_PAGES_PROJECT_NAME }}

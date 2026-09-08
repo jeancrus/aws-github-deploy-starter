@@ -1,0 +1,73 @@
+name: Production parameters
+
+on:
+  workflow_dispatch:
+    inputs:
+      operation:
+        description: 'plan = inspect; repair = clear failed state marks; apply = create/update parameters'
+        type: choice
+        options: [plan, repair, apply]
+        default: plan
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: production-deploy
+  cancel-in-progress: false
+
+jobs:
+  parameters:
+    if: github.ref == 'refs/heads/<PRODUCTION_BRANCH>'
+    runs-on: ubuntu-latest
+    environment: production
+    env:
+      TF_IN_AUTOMATION: 'true'
+      TF_INPUT: 'false'
+      TF_VAR_aws_region: ${{ vars.AWS_REGION }}
+      TF_VAR_secrets: ${{ secrets.PRODUCTION_SECRETS_JSON }}
+      TF_VAR_configuration: ${{ vars.PRODUCTION_CONFIG_JSON || '{}' }}
+      STATE_BUCKET: ${{ vars.TF_STATE_BUCKET }}
+    defaults:
+      run:
+        working-directory: infra/production-config
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: hashicorp/setup-terraform@b9cd54a3c349d3f38e8881555d616ced269862dd # v3.1.2
+        with:
+          terraform_version: 1.10.5
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.AWS_CONFIG_ROLE_ARN }}
+          aws-region: ${{ env.TF_VAR_aws_region }}
+      - name: Validate inputs
+        run: |
+          test -n "$STATE_BUCKET"
+          test -n "$TF_VAR_secrets"
+          python3 ../../scripts/production/check_inputs.py
+      - run: terraform init -backend-config="bucket=$STATE_BUCKET" -backend-config="region=$TF_VAR_aws_region"
+      - run: terraform validate
+      - name: Repair tainted SSM state
+        if: inputs.operation == 'repair'
+        shell: bash
+        run: |
+          set -euo pipefail
+          while IFS= read -r address; do
+            [ -z "$address" ] && continue
+            result="$(terraform untaint "$address" 2>&1)" || {
+              if [[ "$result" != *"is not tainted"* ]]; then
+                echo "$result"
+                exit 1
+              fi
+            }
+            echo "$result"
+          done < <(terraform state list | grep '^aws_ssm_parameter\.' || true)
+      - run: terraform plan -out=production.tfplan -lock-timeout=60s
+      - if: inputs.operation == 'apply'
+        run: terraform apply -lock-timeout=60s production.tfplan
+      - name: Remove local plan
+        if: always()
+        run: rm -f production.tfplan

@@ -42,7 +42,13 @@ read -r -p 'Repositório de infraestrutura/deploy (opcional; Enter = backend): '
 deployment_repository="${deployment_repository:-$backend_repository}"
 read -r -p 'Branch de produção: ' branch
 read -r -p 'Precisa de alta disponibilidade desde o início? [s/N] ' ha
+read -r -p 'Porta da API na EC2 (ex.: 3000): ' api_port
+while [[ -z "$api_port" ]]; do
+  echo 'A porta da API é obrigatória para health check e para BACKEND_API_URL no Pages.'
+  read -r -p 'Porta da API na EC2: ' api_port
+done
 read -r -p 'Health check esperado (URL ou comando): ' health
+read -r -p 'Frontend em Cloudflare Pages com proxy /api? [s/N] ' pages
 
 cat > generated/decision-record.md <<EOF
 # Registro inicial de decisão
@@ -55,19 +61,32 @@ cat > generated/decision-record.md <<EOF
 - Repositório de infraestrutura/deploy: $deployment_repository
 - Branch de produção: $branch
 - Alta disponibilidade inicial: ${ha:-N}
+- Porta da API: $api_port
 - Health check: $health
+- Cloudflare Pages + proxy: ${pages:-N}
 - Data: $(date -u +%Y-%m-%dT%H:%M:%SZ)
+
+## Arquitetura alvo (Lean MVP)
+
+- EC2 + Docker Compose + SSM Parameter Store
+- GitHub Actions OIDC → parâmetros; SSH → deploy.sh (--force-recreate)
+- Fonte de verdade: SSM (não .env.production na VM)
 
 ## Próximas decisões
 
 - [ ] Consultar AWS Pricing MCP.
 - [ ] Consultar AWS Cost Management MCP.
-- [ ] Comparar ARM64 e x86.
+- [ ] Comparar ARM64 (t4g.*) e x86.
 - [ ] Incluir EBS, IPv4, transferência, logs e dependências.
 - [ ] Revisar estimativa com o responsável da conta.
 - [ ] Confirmar tipo de EC2 antes de provisionar.
+- [ ] CloudFormation bootstrap (OIDC/SSM/state).
+- [ ] Environment GitHub production + primeiro plan/apply SSM.
+- [ ] Deploy com PRODUCTION_SSM_ENABLED=true.
+- [ ] Se Pages: BACKEND_API_URL=http://<hostname>:$api_port no projeto Pages.
 
 EOF
 chmod 600 generated/decision-record.md
 printf 'Registro criado em generated/decision-record.md\n'
 echo 'Nenhum recurso AWS foi criado.'
+echo 'Próximo: docs/getting-started.md ou skill lean-mvp-aws-deploy.'

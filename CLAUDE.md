@@ -1,2 +1,1 @@
-Leia `AGENTS.md` antes de agir. Siga o fluxo e os guardrails descritos nele. Use `docs/getting-started.md` como roteiro principal e nunca invente ou peça segredos em texto.
-
+Leia `AGENTS.md` e `.cursor/skills/lean-mvp-aws-deploy/SKILL.md` (ou `.github/prompts/lean-mvp-guide.md`). Não crie recursos AWS sem confirmação.

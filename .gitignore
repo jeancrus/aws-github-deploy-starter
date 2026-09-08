@@ -9,4 +9,5 @@ generated/*
 *.tfstate.*
 .terraform/
 .aws/
-
+__pycache__/
+*.py[cod]
